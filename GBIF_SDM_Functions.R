@@ -1,4 +1,5 @@
 # ---- Download Bioclimatic data from Worldclim ----
+
 bioclim_download = function(resolution = 10) {
   # Create the "data" directory if it doesn't exist
   data_dir = here::here("data2")
@@ -14,6 +15,7 @@ bioclim_download = function(resolution = 10) {
 }
 
 # ---- Automated Batch GBIF Download ----
+
 gbif_occ_data = function(scientific_name, countries) {
   # Create a semicolon-separated string of country codes
   country_codes = paste(unique(unlist(strsplit(countries, ";"))), collapse = ";")
@@ -36,6 +38,7 @@ gbif_occ_data = function(scientific_name, countries) {
 }
 
 # ---- Run MaxEnt Batch ----
+
 run_maxent = function(occ_sf, env) {
   # Get unique Scientific Names
   print(class(occ_sf$Scientific.Name))
@@ -87,6 +90,7 @@ run_maxent = function(occ_sf, env) {
 }
 
 # ---- Replace General Regions w/ List of Countries ----
+
 region_to_country = function(location_string, mapping) {
   for(region in names(mapping)) {
     if(grepl(region, location_string, ignore.case = TRUE)) {
@@ -97,6 +101,7 @@ region_to_country = function(location_string, mapping) {
 }
 
 # ---- Convert Source Location to countryCode ----
+
 flexible_country_code = function(location_string) {
   # List of common two-word countries
   two_word_countries = c("Antigua and Barbuda", "Bosnia and Herzegovina", "Central African Republic", 
@@ -136,7 +141,81 @@ flexible_country_code = function(location_string) {
   return(valid_codes)
 }
 
+# ---- Clip Prediction Raster by Species ----
+
+spp_clip_raster <- function(spp, worldbound, env_rs) {
+  
+  # Ensure the worldbound is in the same CRS as env_rs
+  worldbound <- st_transform(worldbound, crs = crs(env_rs))
+  
+  # Convert the string of country codes in spp dataframe to a list
+  spp <- spp %>%
+    mutate(country_list = str_split(countryCode, ";"))
+  
+  # Initialize an empty list to store the clipped rasters
+  clipped_rasters <- list()
+  
+  # Iterate over each unique Scientific.Name
+  for (sci_name in unique(spp$Scientific.Name)) {
+    # Extract the country codes associated with the current Scientific.Name
+    country_codes <- spp %>%
+      filter(Scientific.Name == sci_name) %>%
+      pull(country_list) %>%
+      unlist()
+    
+    # Subset the worldbound based on the country codes
+    subset_polygons <- worldbound %>%
+      filter(iso_3166_1_ %in% country_codes)
+    
+    # Union the subsetted polygons to get a single polygon in an sf object
+    combined_polygon <- st_union(subset_polygons) %>%
+      st_sf()
+    
+    # Clip the env_rs raster stack using the combined polygon
+    clipped_raster <- mask(env_rs, combined_polygon)
+    
+    # Store the clipped raster in the list
+    clipped_rasters[[sci_name]] <- clipped_raster
+  }
+  
+  return(clipped_rasters)
+}
+
+# ---- Predict MaxEnt Models ----
+
+maxent_predict <- function() {
+  for (i in seq_along(maxent_results$models)) {
+    # If the models have names, use those; otherwise, use the index
+    model_name <- names(maxent_results$models)[i]
+    if (is.null(model_name) || model_name == "") {
+      model_name <- paste0("model_", i)
+    }
+    
+    # Check if the raster clip for this model exists
+    if (!model_name %in% names(clipped_rasters_list)) {
+      cat("No raster clip found for model:", model_name, "\n")
+      next
+    }
+    
+    # Use the corresponding clipped raster for prediction
+    prediction_raster <- clipped_rasters_list[[model_name]]
+    
+    # Predict the model
+    prediction <- predict(prediction_raster, maxent_results$models[[i]], progress = 'text')
+    
+    # Define the filename for the TIFF using the model name
+    model_name <- gsub(" ", "_", model_name)
+    tif_file <- paste0("MaxEnt_Target_Predictions/", model_name, "_MaxEnt_Pred", ".tif")
+    
+    # Save the prediction as a TIFF
+    writeRaster(prediction, filename = tif_file, format = "GTiff", overwrite = TRUE)
+    
+    cat("Saved prediction for", model_name, "as", tif_file, "\n")
+  }
+}
+
 # ---- Region Countries Repository ----
+
 # Define a mapping between region names and the countries they contain
 region_mapping = list(
   
@@ -352,73 +431,3 @@ region_mapping = list(
   'Antarctic' = c(
     "Antarctica", "Bouvet Island", "French Southern and Antarctic Lands", "Heard Island and McDonald Islands", "South Georgia and the South Sandwich Islands")
 )
-
-# ---- Clip Prediction Raster by Species ----
-spp_clip_raster <- function(spp, worldbound, env_rs) {
-  
-  # Ensure the worldbound is in the same CRS as env_rs
-  worldbound <- st_transform(worldbound, crs = crs(env_rs))
-  
-  # Convert the string of country codes in spp dataframe to a list
-  spp <- spp %>%
-    mutate(country_list = str_split(countryCode, ";"))
-  
-  # Initialize an empty list to store the clipped rasters
-  clipped_rasters <- list()
-  
-  # Iterate over each unique Scientific.Name
-  for (sci_name in unique(spp$Scientific.Name)) {
-    # Extract the country codes associated with the current Scientific.Name
-    country_codes <- spp %>%
-      filter(Scientific.Name == sci_name) %>%
-      pull(country_list) %>%
-      unlist()
-    
-    # Subset the worldbound based on the country codes
-    subset_polygons <- worldbound %>%
-      filter(iso_3166_1_ %in% country_codes)
-    
-    # Union the subsetted polygons to get a single polygon in an sf object
-    combined_polygon <- st_union(subset_polygons) %>%
-      st_sf()
-    
-    # Clip the env_rs raster stack using the combined polygon
-    clipped_raster <- mask(env_rs, combined_polygon)
-    
-    # Store the clipped raster in the list
-    clipped_rasters[[sci_name]] <- clipped_raster
-  }
-  
-  return(clipped_rasters)
-}
-# ---- Predict MaxEnt Models ----
-maxent_predict <- function() {
-  for (i in seq_along(maxent_results$models)) {
-    # If the models have names, use those; otherwise, use the index
-    model_name <- names(maxent_results$models)[i]
-    if (is.null(model_name) || model_name == "") {
-      model_name <- paste0("model_", i)
-    }
-    
-    # Check if the raster clip for this model exists
-    if (!model_name %in% names(clipped_rasters_list)) {
-      cat("No raster clip found for model:", model_name, "\n")
-      next
-    }
-    
-    # Use the corresponding clipped raster for prediction
-    prediction_raster <- clipped_rasters_list[[model_name]]
-    
-    # Predict the model
-    prediction <- predict(prediction_raster, maxent_results$models[[i]], progress = 'text')
-    
-    # Define the filename for the TIFF using the model name
-    model_name <- gsub(" ", "_", model_name)
-    tif_file <- paste0("MaxEnt_Target_Predictions/", model_name, "_MaxEnt_Pred", ".tif")
-    
-    # Save the prediction as a TIFF
-    writeRaster(prediction, filename = tif_file, format = "GTiff", overwrite = TRUE)
-    
-    cat("Saved prediction for", model_name, "as", tif_file, "\n")
-  }
-}
