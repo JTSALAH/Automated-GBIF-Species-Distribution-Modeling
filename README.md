@@ -35,7 +35,7 @@ spp = data.frame(
 )
 ```
 
-Native ranges for species is typically vague or generalized to an entire region, so we must convert these regions to a list of countries. I created a repository of global regions and their associated countries in order to bridge this gap. Utilize the region_to_country() custom function & region_mapping repository to convert generalized regions to a list of countries. For example, the region of North America would be converted to a list containing the United States, Canada, and Mexico!
+Native ranges for species are typically vague or generalized to an entire region, so we must convert these regions to a list of countries. I created a repository of global regions and their associated countries in order to bridge this gap. Utilize the region_to_country() custom function & region_mapping repository to convert generalized regions to a list of countries. For example, the region of North America would be converted to a list containing the United States, Canada, and Mexico!
 ```r  
 # Convert Country --> Country Code
 spp = spp %>%
@@ -66,7 +66,13 @@ table(occ_df$Scientific.Name)
 ```
 
 # 6: Batch Run MaxEnt Models on all species
-Maximum Entropy Models (MaxEnt) are a great method to model and predict species distributions based on point data. I have streamlined this process, and incorperated methods to mathematically determine the best setting for each species using the ENMeval package. This package determines the best arguments for your species' dataset such as the beta multiplier and the feature combination. MaxEnt models can be specified by different combinations of five feature combinations: L is linear, Q is quadratic, H is hinge, P is product, and T is threshold. ENMeval determines which feature combination is best suited and is setup as inputs for our MaxEnt model.
+Maximum Entropy Models (MaxEnt) are a great method to model and predict species distributions based on point data. I have streamlined this process, and incorperated methods to mathematically determine the best setting for each species using the ENMeval package. This package determines the best arguments for your species' dataset such as the beta multiplier and the feature combination. MaxEnt models can be specified by different combinations of five feature combinations: 
+* L = linear
+* Q = quadratic
+* H = hinge
+* P = product
+* T = threshold
+ENMeval determines which feature combination is best suited and is setup as inputs for our MaxEnt model. For example, LHT can be a statistically better model choice than just a pure L feature model!
 ```r
 maxent_results = run_maxent(occ_df, env_rs)
 save(maxent_results, file = "maxent_results.rda")
