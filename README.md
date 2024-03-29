@@ -48,7 +48,7 @@ spp$Source.Location = sapply(spp$Source.Location, region_to_country, mapping = r
 ```
 
 # 5: Download Species Data from GBIF
-GBIF is a well respected global effort to document species occurences, and has great integration in R. By utilizing our species names and countries of interest, we can automate the download of point data from the GBIF database!
+GBIF is a well respected global effort to document species occurences, and has great integration in R. By utilizing our species names and countries of interest, we can automate the download of point data from the GBIF database! Apply the gbif_occ_data() custom function to all species by their specified locations of interest.
 ```r
 # Apply the function to each scientific name in the dataframe
 occ_list = setNames(mapply(gbif_occ_data, 
