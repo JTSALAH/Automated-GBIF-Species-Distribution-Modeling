@@ -35,7 +35,7 @@ spp = data.frame(
 )
 ```
 
-Native ranges for species are typically vague or generalized to an entire region, so we must convert these regions to a list of countries. I created a repository of global regions and their associated countries in order to bridge this gap. Utilize the region_to_country() custom function & region_mapping repository to convert generalized regions to a list of countries. For example, the region of North America would be converted to a list containing the United States, Canada, and Mexico!
+Native ranges for species are typically vague or generalized to an entire region, so we must convert these regions to a list of countries. I created a repository of global regions and their associated countries in order to bridge this gap. Utilize the region_to_country() custom function & region_mapping repository to convert generalized regions to a list of countries. For example, the region of North America would be converted to a vector containing the United States, Canada, and Mexico! This is then converted to country codes to more reliably query GBIF in step 5.
 ```r  
 # Convert Country --> Country Code
 spp = spp %>%
