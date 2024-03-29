@@ -72,6 +72,7 @@ Maximum Entropy Models (MaxEnt) are a great method to model and predict species 
 * H = hinge
 * P = product
 * T = threshold
+
 ENMeval determines which feature combination is best suited and is setup as inputs for our MaxEnt model. For example, LHT can be a statistically better model choice than just a pure L feature model!
 ```r
 maxent_results = run_maxent(occ_df, env_rs)
